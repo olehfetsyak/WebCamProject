@@ -5,6 +5,7 @@ import cv2
 
 
 vid_path = '/Users/pyProject/WebCamProject/testCam.mjpeg.avi'
+check_image_every = 2  # In Seconds
 
 def colorDifference(color1, color2): 
     colorDifference = ColorQuantifier(
@@ -23,15 +24,16 @@ def colorDifference(color1, color2):
 #-------------------- Break --------------------#
 
 
-def getImgArray(frame_number, vid_path, max_width):
+def getImgArray(frame_number, vid_path, max_width, new_frame_number):
     capture = cv2.VideoCapture(vid_path)
 
     capture.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-    ret, pixel1 = capture.read()
+    _, pixel1 = capture.read()
     capture.set(cv2.CAP_PROP_POS_FRAMES, frame_number + 1)
-    ret, pixel2 = capture.read()
+    _, pixel2 = capture.read()
 
-    cv2.imwrite(f'./img/frame{frame_number}.jpg', pixel1)
+    #new_frame_number is used to save the image in the same iteration as previous
+    cv2.imwrite(f'./img/frame{new_frame_number}.jpg', pixel1) 
 
     capture.release()
 
@@ -40,17 +42,18 @@ def getImgArray(frame_number, vid_path, max_width):
     pixel1 = cv2.resize(pixel1, (max_width, int(max_width * aspect_ratio)), interpolation=cv2.INTER_LANCZOS4)
     pixel2 = cv2.resize(pixel2, (max_width, int(max_width * aspect_ratio)), interpolation=cv2.INTER_LANCZOS4)
 
-    pixel1 = cv2.cvtColor(pixel1, cv2.COLOR_BGR2LAB)
-    pixel2 = cv2.cvtColor(pixel2, cv2.COLOR_BGR2LAB)
+    pixel1, pixel2 = cv2.cvtColor(pixel1, cv2.COLOR_BGR2LAB), cv2.cvtColor(pixel2, cv2.COLOR_BGR2LAB)
 
     return [pixel1, pixel2]
 
 def generateMask(mask_image_path, image_path):
     mask_image = cv2.imread(mask_image_path, cv2.IMREAD_GRAYSCALE)
     image = cv2.imread(image_path)
-
+    
+    mask_image = cv2.medianBlur(mask_image, ksize=3) 
+    # To-Do, move out of function so saved 0.png has blur built in
     mask_image = cv2.resize(mask_image, (image.shape[1], image.shape[0]))
-
+    
     mask = cv2.inRange(mask_image, 1, 255)
 
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -58,10 +61,23 @@ def generateMask(mask_image_path, image_path):
     result = cv2.drawContours(image, contours, -1, (0, 255, 0), 2)
     return result
 
-for i in range(8):
-    pixel_array = getImgArray(i, vid_path, 80)
-#print(f"\nFirst Frame:\n{pixelArray[0]}")
-#print(f"\nSecond Frame:\n{pixelArray[1]}")
+def splitFrame(vid_path, time):
+    capture = cv2.VideoCapture(vid_path)
+
+    frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = int(capture.get(cv2.CAP_PROP_FPS))
+    capture.release()
+
+    return (fps * time, frame_count)
+
+frame_result = splitFrame(vid_path, check_image_every)
+time_step, total_frames = frame_result[0], frame_result[1]
+img_count = 0
+for i in range(0, total_frames, time_step):
+    pixel_array = getImgArray(i, vid_path, 80, img_count) 
+    #To-Do having to pass an unneccesary variable,: img_count
+    #print(f"\nFirst Frame:\n{pixelArray[0]}")
+    #print(f"\nSecond Frame:\n{pixelArray[1]}")
 
     new_image = []
 
@@ -78,7 +94,7 @@ for i in range(8):
     array = numpy.array(new_image, dtype=numpy.uint8)
     image = Image.fromarray(array * 255, mode="L") 
 
-    image.save(f"./img/{i}.png")
+    image.save(f"./img/{img_count}.png")
 
-    cv2.imwrite(f'./img/result{i}.png', generateMask(f'./img/{i}.png', f'./img/frame{i}.jpg'))
-
+    cv2.imwrite(f'./img/result{img_count}.png', generateMask(f'./img/{img_count}.png', f'./img/frame{img_count}.jpg'))
+    img_count += 1
