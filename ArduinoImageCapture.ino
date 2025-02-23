@@ -51,6 +51,6 @@ void loop() {
   Serial.write(0xFF);
   Serial.write(0xD9);
 
-  delay(1000);
+  delay(100);
 
 }

@@ -24,7 +24,7 @@ class CaptureImage:
         print("Awaiting Camera")
 
         self.ser.reset_input_buffer()
-        sleep(0.5)
+        sleep(0.05)
         while True:
             image_data += self.ser.read(1)
 

@@ -1,6 +1,5 @@
 from colorQuantifier import ColorQuantifier
 from captureImage import CaptureImage
-from PIL import Image
 from time import sleep
 import numpy
 import cv2
@@ -16,9 +15,9 @@ current_image = CaptureImage("./img/current_image.jpg", '/dev/cu.usbmodem1101', 
 def getImageBatch():
     current_image.captureImage()
     cv2.imwrite("./img/previous_image.jpg", cv2.imread(current_image.getImagePath()))
-    sleep(0.5)
+    sleep(0.3)
     current_image.captureImage()
-    sleep(0.5)
+    sleep(0.3)
 
 def turnImgToArray():
     previous_image = cv2.imread("./img/previous_image.jpg")
@@ -56,35 +55,51 @@ def colorDifference(color1, color2):
         color2[2],   
     )
     #deltaE = colorDifference.calculateDeltaE()
-    return 0 if colorDifference.calculateDeltaE() < 12 else 1
+    return 0 if colorDifference.calculateDeltaE() < 15 else 1
 
+def  checkForCorruption(img):
+    img = cv2.imread(img)
+    try:
+        
+        height, width, _ = img.shape
+        new_size = (int(width * 0.07), int(height * 0.07))
+
+        img = cv2.resize(img, new_size, interpolation=cv2.INTER_AREA)
+    except:
+        return 1
+    return 0
 
 #-------------------- Main Proccess --------------------#
-getImageBatch()  # Initial capture to have a previous and current image
+if __name__ == "__main__":
+    getImageBatch()  # Initial capture to have a previous and current image
 
-for i in range(8):
-    if i > 0:
-        cv2.imwrite("./img/previous_image.jpg", cv2.imread("./img/current_image.jpg"))
-        current_image.captureImage()
-    
-    previous_image_arr, current_image_arr = turnImgToArray()
-    
-    new_image = []
-    for x in range(previous_image_arr.shape[0]):
-        row = []
-        for y in range(previous_image_arr.shape[1]):
-            difference = colorDifference(
-                previous_image_arr[x][y],
-                current_image_arr[x][y]
-            )
-            row.append(difference)
-        new_image.append(row)
-    
-    masked_image = numpy.array(new_image, dtype=numpy.uint8) * 255
+    for i in range(36):
+        if i > 0:
+            cv2.imwrite("./img/previous_image.jpg", cv2.imread("./img/current_image.jpg"))
+            current_image.captureImage()
 
-    masked_image = createImageMask(masked_image, cv2.imread("./img/current_image.jpg"))
-    cv2.imwrite("./img/motion_capture.jpg", masked_image)
-    sleep(0.5)
+        if (checkForCorruption("./img/current_image.jpg")):
+            cv2.imwrite("./img/current_image.jpg", cv2.imread("./img/previous_image.jpg"))
+            print("The current captured image was corrupted")
+
+        previous_image_arr, current_image_arr = turnImgToArray()
+        
+        new_image = []
+        for x in range(previous_image_arr.shape[0]):
+            row = []
+            for y in range(previous_image_arr.shape[1]):
+                difference = colorDifference(
+                    previous_image_arr[x][y],
+                    current_image_arr[x][y]
+                )
+                row.append(difference)
+            new_image.append(row)
+        
+        masked_image = numpy.array(new_image, dtype=numpy.uint8) * 255
+
+        masked_image = createImageMask(masked_image, cv2.imread("./img/current_image.jpg"))
+        cv2.imwrite("./img/motion_capture.jpg", masked_image)
+        sleep(0.5)
 
 
 #def getImgArray(frame_number, vid_path, max_width, new_frame_number):
