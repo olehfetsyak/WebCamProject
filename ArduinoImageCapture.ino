@@ -51,8 +51,6 @@ void loop() {
   Serial.write(0xFF);
   Serial.write(0xD9);
 
-
-  // Wait 10 seconds before sending next image
-  delay(5000);
+  delay(1000);
 
 }
