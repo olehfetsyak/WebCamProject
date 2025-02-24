@@ -1,6 +1,7 @@
 from colorQuantifier import ColorQuantifier
 from captureImage import CaptureImage
 from time import sleep
+from datetime import datetime
 import numpy
 import cv2
 
@@ -9,6 +10,9 @@ import cv2
 #check_image_every = 2  # In Seconds
 
 current_image = CaptureImage("./img/current_image.jpg", '/dev/cu.usbmodem1101', 115200)
+approximate_cars = 0
+
+image_text_font = cv2.FONT_HERSHEY_SIMPLEX
 
 #-------------------- Functions --------------------#
 
@@ -33,16 +37,20 @@ def turnImgToArray():
     current_image = cv2.cvtColor(current_image, cv2.COLOR_BGR2LAB)
     return previous_image, current_image
 
-def createImageMask(image_mask, image):
+def createImageMask(image_mask, image, approximate_cars):
     image_mask = cv2.resize(image_mask, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
     
     _, image_mask = cv2.threshold(image_mask, 127, 255, cv2.THRESH_BINARY)
     image_mask = cv2.medianBlur(image_mask, ksize=3)
 
     contours, _ = cv2.findContours(image_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+
+    if (len(contours) > 0):
+            approximate_cars += 1
+
     masked_image = cv2.drawContours(image.copy(), contours, -1, (0, 255, 0), 2)
 
-    return masked_image
+    return masked_image, approximate_cars
 
 def colorDifference(color1, color2): 
     colorDifference = ColorQuantifier(
@@ -96,9 +104,23 @@ if __name__ == "__main__":
             new_image.append(row)
         
         masked_image = numpy.array(new_image, dtype=numpy.uint8) * 255
+        masked_image, approximate_cars = createImageMask(masked_image, cv2.imread("./img/current_image.jpg"), approximate_cars)
 
-        masked_image = createImageMask(masked_image, cv2.imread("./img/current_image.jpg"))
-        cv2.imwrite("./img/motion_capture.jpg", masked_image)
+        masked_image_height, masked_image_width, _ = masked_image.shape
+        image_with_description = numpy.zeros((30, masked_image_width, 3), dtype=numpy.uint8)
+
+        image_with_description = cv2.putText(image_with_description, f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}, Estimate Cars: {approximate_cars}", 
+            (5, 20), 
+            image_text_font, 
+            0.4,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA
+        )
+
+        image_with_description = numpy.vstack((masked_image, image_with_description))
+
+        cv2.imwrite("./img/motion_capture.jpg", image_with_description)
         sleep(0.5)
 
 
