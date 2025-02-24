@@ -39,7 +39,7 @@ void loop() {
   // Send each byte of the image from the fifi buffer over the cable
   uint32_t length = myCAM.read_fifo_length();
   
-  delay(1000);
+  delay(500);
 
   // Prepare camera for sending bytes
   myCAM.set_fifo_burst();
