@@ -4,6 +4,7 @@ from time import sleep
 from datetime import datetime
 import numpy
 import cv2
+import os
 
 
 #vid_path = '/Users/pyProject/WebCamProject/testCam.mjpeg.avi'
@@ -13,6 +14,10 @@ current_image = CaptureImage("./img/current_image.jpg", '/dev/cu.usbmodem1101', 
 approximate_cars = 0
 
 image_text_font = cv2.FONT_HERSHEY_SIMPLEX
+
+save_motion_capture = False
+motion_capture_index = 0
+video_index = 0
 
 #-------------------- Functions --------------------#
 
@@ -65,6 +70,37 @@ def colorDifference(color1, color2):
     #deltaE = colorDifference.calculateDeltaE()
     return 0 if colorDifference.calculateDeltaE() < 15 else 1
 
+def createVideoSnippet(index):
+    import os
+import cv2
+
+def createVideoSnippet(index):
+    image_folder = './video_capture'
+    video_name = f'./vid_snippets/{index}.mp4'
+
+    images = sorted([img for img in os.listdir(image_folder) if img.endswith(".jpg")])
+
+    first_frame_path = os.path.join(image_folder, images[0])
+    first_frame = cv2.imread(first_frame_path)
+
+    height, width, _ = first_frame.shape
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fps = 1
+
+    video = cv2.VideoWriter(video_name, fourcc, fps, (width, height))
+
+    for image in images:
+        img_path = os.path.join(image_folder, image)
+        frame = cv2.imread(img_path)
+
+        video.write(frame)
+
+        os.remove(img_path)
+
+    cv2.destroyAllWindows()
+    video.release()
+
 def  checkForCorruption(img):
     img = cv2.imread(img)
     try:
@@ -79,7 +115,7 @@ def  checkForCorruption(img):
 
 #-------------------- Main Proccess --------------------#
 if __name__ == "__main__":
-    getImageBatch()  # Initial capture to have a previous and current image
+    getImageBatch() 
 
     for i in range(36):
         if i > 0:
@@ -109,7 +145,7 @@ if __name__ == "__main__":
         masked_image_height, masked_image_width, _ = masked_image.shape
         image_with_description = numpy.zeros((30, masked_image_width, 3), dtype=numpy.uint8)
 
-        image_with_description = cv2.putText(image_with_description, f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}, Estimate Cars: {approximate_cars}", 
+        image_with_description = cv2.putText(image_with_description, f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}, Estimated Cars: {approximate_cars}", 
             (5, 20), 
             image_text_font, 
             0.4,
@@ -121,7 +157,31 @@ if __name__ == "__main__":
         image_with_description = numpy.vstack((masked_image, image_with_description))
 
         cv2.imwrite("./img/motion_capture.jpg", image_with_description)
+        cv2.imshow("./img/motion_capture.jpg", image_with_description)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            print("Motion Capture interrupted")
+            break
+        elif key == ord('s'):
+            if (not save_motion_capture):
+                print("Saving Motion to video")
+            else:
+                print("Video Snipper Captured")
+                createVideoSnippet(video_index)
+                video_index += 1
+                motion_capture_index = 0
+
+            save_motion_capture = not save_motion_capture
+
+        if (save_motion_capture):
+            cv2.imwrite(f"./video_capture/{motion_capture_index}.jpg", image_with_description)
+            motion_capture_index += 1
+
         sleep(0.5)
+
+    cv2.destroyAllWindows()
+
 
 
 #def getImgArray(frame_number, vid_path, max_width, new_frame_number):
